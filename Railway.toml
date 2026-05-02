@@ -1,0 +1,8 @@
+[railway]
+  nixpacksVersion = "latest"
+
+[.nixpacks]
+  nodeVersion = "18"
+
+[start]
+  cmd = "node unified-server.js"
