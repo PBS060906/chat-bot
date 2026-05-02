@@ -2,7 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
-const crypto = require('crypto');
+const { Telegraf } = require('telegraf');
 const { v4: uuidv4 } = require('uuid');
 
 const app = express();
@@ -15,14 +15,7 @@ const io = new Server(server, {
 });
 
 const PORT = process.env.PORT || 3000;
-
-const WECHAT_CONFIG = {
-    corpId: process.env.WECHAT_CORP_ID || 'ww88569f731cd42759',
-    agentId: process.env.WECHAT_AGENT_ID || '1000002',
-    secret: process.env.WECHAT_SECRET || 'F1tkbxlfaAXoe7dzoqWJ75SelVvg8pyq4jd8f70egFo',
-    token: process.env.WECHAT_TOKEN || 'PBSSJY1314',
-    encodingAESKey: process.env.WECHAT_AES_KEY || 'xNiB8qjDinrsSjWoHcDe1zMV7fRFwbnMP7UY9X3jcSm'
-};
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 
 const messages = [];
 
@@ -63,7 +56,7 @@ function getBotResponse(userMessage) {
     const responses = [
         '杩欐槸涓湁瓒ｇ殑璇濋锛佽兘鍛婅瘔鎴戞洿澶氬悧锛?,
         '鎴戠悊瑙ｄ綘鐨勬剰鎬濄€傛湁浠€涔堝叿浣撴兂鑱婄殑鍚楋紵',
-        '濂界殑锛屾垜鍚噦浜嗐€傝闂繕鏈変粈涔堟兂璇寸殑锛?,
+        '濂界殑锛屾垜鍚噦浜嗐€傝闂繕鏈変粈涔堟兂璇寸殑鍚楋紵',
         '鍡棷锛岀户缁鍚э紝鎴戝湪鍚紒',
         '鏄庣櫧浜嗐€備綘甯屾湜鎴戝府浣犲垎鏋愪竴涓嬪悧锛?,
         '鏈夋剰鎬濓紒璁╂垜浠户缁亰鑱娿€?
@@ -71,127 +64,34 @@ function getBotResponse(userMessage) {
     return responses[Math.floor(Math.random() * responses.length)];
 }
 
-function verifySignature(token, timestamp, nonce, encrypt, signature) {
-    const arr = [token, timestamp, nonce, encrypt].sort();
-    const str = arr.join('');
-    const sha1 = crypto.createHash('sha1').update(str).digest('hex');
-    return sha1 === signature;
-}
+let bot;
+if (TELEGRAM_BOT_TOKEN) {
+    bot = new Telegraf(TELEGRAM_BOT_TOKEN);
 
-function decrypt(echostr, encodingAESKey) {
-    try {
-        const aesKey = Buffer.from(encodingAESKey + '=', 'base64');
-        const aesIV = aesKey.slice(0, 16);
-        const decipher = crypto.createDecipheriv('aes-256-cbc', aesKey, aesIV);
-        decipher.setAutoPadding(false);
-        let decrypted = Buffer.concat([decipher.update(Buffer.from(echostr, 'base64')), decipher.final()]);
-        const pad = decrypted[decrypted.length - 1];
-        if (pad > 0 && pad <= 32) {
-            decrypted = decrypted.slice(0, decrypted.length - pad);
-        }
-        const msgLen = decrypted.readUInt32BE(16);
-        return decrypted.slice(20, 20 + msgLen).toString('utf8');
-    } catch (e) {
-        console.error('Decrypt error:', e.message);
-        return null;
-    }
-}
-
-function encrypt(replyMsg, encodingAESKey, corpId) {
-    try {
-        const random16 = crypto.randomBytes(16);
-        const msgBuffer = Buffer.from(replyMsg, 'utf8');
-        const msgLenBuffer = Buffer.alloc(4);
-        msgLenBuffer.writeUInt32BE(msgBuffer.length, 0);
-        const corpIdBuffer = Buffer.from(corpId, 'utf8');
-        const totalBuffer = Buffer.concat([random16, msgLenBuffer, msgBuffer, corpIdBuffer]);
-        const padSize = 32 - (totalBuffer.length % 32);
-        const padBuffer = Buffer.alloc(padSize, padSize);
-        const contentBuffer = Buffer.concat([totalBuffer, padBuffer]);
-        const aesKey = Buffer.from(encodingAESKey + '=', 'base64');
-        const aesIV = aesKey.slice(0, 16);
-        const cipher = crypto.createCipheriv('aes-256-cbc', aesKey, aesIV);
-        cipher.setAutoPadding(false);
-        return Buffer.concat([cipher.update(contentBuffer), cipher.final()]).toString('base64');
-    } catch (e) {
-        console.error('Encrypt error:', e.message);
-        return null;
-    }
-}
-
-app.get('/wechat', (req, res) => {
-    const msg_signature = req.query.msg_signature;
-    const timestamp = req.query.timestamp;
-    const nonce = req.query.nonce;
-    const echostr = req.query.echostr;
-
-    console.log('WeChat GET:', { msg_signature, timestamp, nonce, echostr });
-
-    if (!msg_signature || !timestamp || !nonce || !echostr) {
-        res.end('Shao Ju Yuan AI Service Running...');
-        return;
-    }
-
-    if (!verifySignature(WECHAT_CONFIG.token, timestamp, nonce, echostr, msg_signature)) {
-        console.log('Signature verification failed');
-        res.status(400).end('signature failed');
-        return;
-    }
-
-    const decrypted = decrypt(echostr, WECHAT_CONFIG.encodingAESKey);
-    if (decrypted) {
-        console.log('Decrypted echostr:', decrypted);
-        res.end(decrypted);
-    } else {
-        res.status(500).end('decrypt failed');
-    }
-});
-
-app.post('/wechat', (req, res) => {
-    let body = '';
-    req.on('data', chunk => body += chunk);
-    req.on('end', () => {
-        console.log('WeChat POST body:', body);
-
-        const msg_signature = req.query.msg_signature;
-        const timestamp = req.query.timestamp;
-        const nonce = req.query.nonce;
-
-        const encryptMatch = body.match(/<Encrypt><!\[CDATA\[(.*?)\]\]><\/Encrypt>/);
-        const encrypt = encryptMatch ? encryptMatch[1] : null;
-
-        if (!encrypt || !verifySignature(WECHAT_CONFIG.token, timestamp, nonce, encrypt, msg_signature)) {
-            res.status(400).end('signature failed');
-            return;
-        }
-
-        const decrypted = decrypt(encrypt, WECHAT_CONFIG.encodingAESKey);
-        console.log('Decrypted message:', decrypted);
-
-        const contentMatch = decrypted ? decrypted.match(/<Content><!\[CDATA\[(.*?)\]\]><\/Content>/) : null;
-        const fromUserMatch = decrypted ? decrypted.match(/<FromUserName><!\[CDATA\[(.*?)\]\]><\/FromUserName>/) : null;
-
-        const userContent = contentMatch ? contentMatch[1] : '';
-        const fromUser = fromUserMatch ? fromUserMatch[1] : '';
-
-        const replyContent = getBotResponse(userContent);
-        console.log('Reply:', replyContent);
-
-        const encrypted = encrypt(replyContent, WECHAT_CONFIG.encodingAESKey, WECHAT_CONFIG.corpId);
-        const arr = [WECHAT_CONFIG.token, timestamp, nonce, encrypted].sort();
-        const signature = crypto.createHash('sha1').update(arr.join('')).digest('hex');
-
-        const replyXml = `<xml>
-<Encrypt><![CDATA[${encrypted}]]></Encrypt>
-<MsgSignature><![CDATA[${signature}]]></MsgSignature>
-<TimeStamp>${timestamp}</TimeStamp>
-<Nonce><![CDATA[${nonce}]]></Nonce>
-</xml>`;
-
-        res.writeHead(200, { 'Content-Type': 'application/xml' });
-        res.end(replyXml);
+    bot.start((ctx) => {
+        ctx.reply('娆㈣繋锛佹垜鏄亰澶╂満鍣ㄤ汉灏忔櫤锛佹湁浠€涔堟垜鍙互甯姪浣犵殑鍚楋紵');
     });
-});
+
+    bot.help((ctx) => {
+        ctx.reply('浣犲彲浠ュ拰鎴戣亰澶╋紝鎴栬€呭彂閫佸浘鐗囩粰鎴戠湅銆傛垜浼氬敖閲忓府鍔╀綘锛?);
+    });
+
+    bot.on('text', (ctx) => {
+        const userMessage = ctx.message.text;
+        const response = getBotResponse(userMessage);
+        ctx.reply(response);
+    });
+
+    bot.on('photo', (ctx) => {
+        ctx.reply('鏀跺埌鍥剧墖浜嗭紒杩欏紶鍥剧墖寰堟湁鎰忔€濓紒');
+    });
+
+    bot.launch();
+    console.log('Telegram Bot started successfully!');
+
+    process.once('SIGINT', () => bot.stop('SIGINT'));
+    process.once('SIGTERM', () => bot.stop('SIGTERM'));
+}
 
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
@@ -243,4 +143,7 @@ io.on('connection', (socket) => {
 
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+    if (!TELEGRAM_BOT_TOKEN) {
+        console.log('Warning: TELEGRAM_BOT_TOKEN not set - Telegram Bot will not start');
+    }
 });
