@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>鏅鸿兘鑱婂ぉ鏈哄櫒浜?/title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .chat-container {
+            width: 420px;
+            height: 650px;
+            background: #f5f5f5;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .chat-info h2 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .chat-info span {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .message {
+            max-width: 75%;
+            padding: 10px 14px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+
+        .message.user {
+            background: #667eea;
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.bot {
+            background: white;
+            color: #333;
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .message.image {
+            padding: 4px;
+            background: transparent;
+        }
+
+        .message.image img {
+            max-width: 200px;
+            max-height: 200px;
+            border-radius: 8px;
+        }
+
+        .message.voice {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .voice-icon {
+            width: 32px;
+            height: 32px;
+            background: #667eea;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            cursor: pointer;
+        }
+
+        .voice-icon.playing {
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .message-time {
+            font-size: 10px;
+            opacity: 0.6;
+            margin-top: 4px;
+            display: block;
+        }
+
+        .message.user .message-time {
+            text-align: right;
+        }
+
+        .typing-indicator {
+            display: none;
+            align-self: flex-start;
+            background: white;
+            padding: 12px 16px;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .typing-indicator.show {
+            display: flex;
+            gap: 4px;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background: #999;
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-6px); }
+        }
+
+        .chat-input {
+            background: white;
+            padding: 12px 16px;
+            display: flex;
+            align-items: flex-end;
+            gap: 8px;
+            border-top: 1px solid #eee;
+        }
+
+        .input-actions {
+            display: flex;
+            gap: 4px;
+        }
+
+        .action-btn {
+            width: 36px;
+            height: 36px;
+            border: none;
+            background: #f0f0f0;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            transition: background 0.2s;
+        }
+
+        .action-btn:hover {
+            background: #e0e0e0;
+        }
+
+        .input-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        #messageInput {
+            width: 100%;
+            min-height: 36px;
+            max-height: 100px;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            resize: none;
+            font-family: inherit;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        #messageInput:focus {
+            border-color: #667eea;
+        }
+
+        .send-btn {
+            width: 40px;
+            height: 36px;
+            border: none;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .send-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .send-btn:active {
+            transform: translateY(0);
+        }
+
+        #imageInput {
+            display: none;
+        }
+
+        .image-preview {
+            display: none;
+            position: relative;
+            max-width: 200px;
+            margin-bottom: 8px;
+        }
+
+        .image-preview.show {
+            display: block;
+        }
+
+        .image-preview img {
+            max-width: 100%;
+            max-height: 150px;
+            border-radius: 8px;
+        }
+
+        .image-preview .remove-btn {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            width: 24px;
+            height: 24px;
+            background: #ff4d4f;
+            border: none;
+            border-radius: 50%;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .datetime-separator {
+            text-align: center;
+            color: #999;
+            font-size: 12px;
+            margin: 8px 0;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #ccc;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #aaa;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <div class="avatar">馃</div>
+            <div class="chat-info">
+                <h2>灏忔櫤 AI</h2>
+                <span id="status">鍦ㄧ嚎</span>
+            </div>
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+            <div class="message bot">
+                浣犲ソ锛佹垜鏄皬鏅猴紝寰堥珮鍏磋璇嗕綘锛佹湁浠€涔堟垜鍙互甯姪浣犵殑鍚楋紵馃槉
+                <span class="message-time">鍒氬垰</span>
+            </div>
+        </div>
+
+        <div class="typing-indicator" id="typingIndicator">
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+        </div>
+
+        <div class="chat-input">
+            <div class="input-actions">
+                <button class="action-btn" onclick="document.getElementById('imageInput').click()" title="鍙戦€佸浘鐗?>馃柤锔?/button>
+                <button class="action-btn" id="voiceBtn" onclick="toggleVoiceRecording()" title="璇煶娑堟伅">馃帳</button>
+            </div>
+            <div class="input-wrapper">
+                <div class="image-preview" id="imagePreview">
+                    <img id="previewImg" src="" alt="Preview">
+                    <button class="remove-btn" onclick="removeImage()">脳</button>
+                </div>
+                <textarea id="messageInput" placeholder="杈撳叆娑堟伅..." rows="1"></textarea>
+            </div>
+            <button class="send-btn" onclick="sendMessage()">鉃?/button>
+        </div>
+
+        <input type="file" id="imageInput" accept="image/*">
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const messagesContainer = document.getElementById('chatMessages');
+        const messageInput = document.getElementById('messageInput');
+        const typingIndicator = document.getElementById('typingIndicator');
+        const statusEl = document.getElementById('status');
+        const imageInput = document.getElementById('imageInput');
+        const imagePreview = document.getElementById('imagePreview');
+        const previewImg = document.getElementById('previewImg');
+
+        let isRecording = false;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let currentImageFile = null;
+
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diff = now - date;
+
+            if (diff < 60000) return '鍒氬垰';
+            if (diff < 3600000) return `${Math.floor(diff / 60000)}鍒嗛挓鍓峘;
+            if (date.toDateString() === now.toDateString()) {
+                return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+            }
+            return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }) + ' ' +
+                   date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function scrollToBottom() {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function addMessage(sender, type, content, fileUrl, timestamp) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender === 'user' ? 'user' : 'bot'}`;
+
+            if (type === 'image' && fileUrl) {
+                messageDiv.classList.add('image');
+                messageDiv.innerHTML = `<img src="${fileUrl}" alt="鍥剧墖">`;
+            } else if (type === 'voice' && fileUrl) {
+                messageDiv.classList.add('voice');
+                messageDiv.innerHTML = `
+                    <div class="voice-icon" onclick="playAudio('${fileUrl}')">鈻?/div>
+                    <span>璇煶娑堟伅</span>
+                `;
+            } else {
+                messageDiv.textContent = content;
+            }
+
+            const timeSpan = document.createElement('span');
+            timeSpan.className = 'message-time';
+            timeSpan.textContent = formatTime(timestamp || Date.now());
+            messageDiv.appendChild(timeSpan);
+
+            messagesContainer.appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        function sendMessage() {
+            const content = messageInput.value.trim();
+
+            if (!content && !currentImageFile) return;
+
+            if (currentImageFile) {
+                const formData = new FormData();
+                formData.append('file', currentImageFile);
+
+                fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(res => res.json())
+                .then(data => {
+                    socket.emit('sendImage', {
+                        sender: 'user',
+                        fileUrl: data.url
+                    });
+                    removeImage();
+                })
+                .catch(err => console.error('Upload error:', err));
+            }
+
+            if (content) {
+                socket.emit('sendMessage', {
+                    sender: 'user',
+                    type: 'text',
+                    content: content
+                });
+            }
+
+            messageInput.value = '';
+            messageInput.style.height = 'auto';
+        }
+
+        function toggleImagePreview(file) {
+            if (file) {
+                currentImageFile = file;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    previewImg.src = e.target.result;
+                    imagePreview.classList.add('show');
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function removeImage() {
+            currentImageFile = null;
+            imageInput.value = '';
+            imagePreview.classList.remove('show');
+        }
+
+        async function toggleVoiceRecording() {
+            const voiceBtn = document.getElementById('voiceBtn');
+
+            if (!isRecording) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+
+                    mediaRecorder.ondataavailable = (e) => {
+                        audioChunks.push(e.data);
+                    };
+
+                    mediaRecorder.onstop = () => {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        const formData = new FormData();
+                        formData.append('file', audioBlob, 'voice.webm');
+
+                        fetch('/api/upload', {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            socket.emit('sendMessage', {
+                                sender: 'user',
+                                type: 'voice',
+                                content: '',
+                                fileUrl: data.url
+                            });
+                        })
+                        .catch(err => console.error('Upload error:', err));
+
+                        stream.getTracks().forEach(track => track.stop());
+                    };
+
+                    mediaRecorder.start();
+                    isRecording = true;
+                    voiceBtn.style.background = '#ff4d4f';
+                    voiceBtn.textContent = '鈴癸笍';
+                } catch (err) {
+                    console.error('Microphone access error:', err);
+                    alert('鏃犳硶璁块棶楹﹀厠椋庯紝璇锋鏌ユ潈闄愯缃?);
+                }
+            } else {
+                if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                    mediaRecorder.stop();
+                }
+                isRecording = false;
+                voiceBtn.style.background = '';
+                voiceBtn.textContent = '馃帳';
+            }
+        }
+
+        function playAudio(url) {
+            const audio = new Audio(url);
+            const voiceIcon = event.target;
+            voiceIcon.classList.add('playing');
+            voiceIcon.textContent = '馃攰';
+
+            audio.onended = () => {
+                voiceIcon.classList.remove('playing');
+                voiceIcon.textContent = '鈻?;
+            };
+
+            audio.play();
+        }
+
+        socket.on('connect', () => {
+            statusEl.textContent = '鍦ㄧ嚎';
+        });
+
+        socket.on('disconnect', () => {
+            statusEl.textContent = '绂荤嚎';
+        });
+
+        socket.on('newMessage', (message) => {
+            typingIndicator.classList.remove('show');
+            addMessage(message.sender, message.type, message.content, message.fileUrl, message.timestamp);
+        });
+
+        socket.on('botTyping', (isTyping) => {
+            if (isTyping) {
+                typingIndicator.classList.add('show');
+            } else {
+                typingIndicator.classList.remove('show');
+            }
+        });
+
+        imageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                toggleImagePreview(file);
+            }
+        });
+
+        messageInput.addEventListener('input', () => {
+            messageInput.style.height = 'auto';
+            messageInput.style.height = Math.min(messageInput.scrollHeight, 100) + 'px';
+        });
+
+        messageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        fetch('/api/messages')
+            .then(res => res.json())
+            .then(messages => {
+                messagesContainer.innerHTML = '';
+                messages.forEach(msg => {
+                    addMessage(msg.sender, msg.type, msg.content, msg.fileUrl, msg.timestamp);
+                });
+                if (messages.length === 0) {
+                    messagesContainer.innerHTML = `
+                        <div class="message bot">
+                            浣犲ソ锛佹垜鏄皬鏅猴紝寰堥珮鍏磋璇嗕綘锛佹湁浠€涔堟垜鍙互甯姪浣犵殑鍚楋紵馃槉
+                            <span class="message-time">鍒氬垰</span>
+                        </div>
+                    `;
+                }
+                scrollToBottom();
+            })
+            .catch(err => console.error('Error loading messages:', err));
+    </script>
+</body>
+</html>
